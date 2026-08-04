@@ -1,4 +1,4 @@
-name: Package rhybiwsubs for MacOS and Linux
+name: Package rhybiq for macOS, Linux, and Windows
 on:
   workflow_dispatch:
     inputs:
@@ -194,7 +194,7 @@ jobs:
         mkdir Mac-Package/Payload
 
         # Move the app to the package
-        mv AutoSubs-App/src-tauri/target/release/bundle/macos/AutoSubs.app Mac-Package/Payload
+        mv "AutoSubs-App/src-tauri/target/release/bundle/macos/${APP_NAME}.app" Mac-Package/Payload
 
     - name: Create PKG Installer
       run: |
@@ -278,10 +278,81 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          ${APP_NAME}-Mac-${{ matrix.pkg_suffix }}.pkg
+          ${{ env.APP_NAME }}-Mac-${{ matrix.pkg_suffix }}.pkg
           release-artifacts/*
         token: ${{ secrets.GH_TOKEN }}
         tag_name: ${{ env.TAG }}
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout AutoSubs Repo Code
+        uses: actions/checkout@v4
+
+      - name: Ensure TAG is set
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace("${{ env.TAG }}")) {
+            Write-Error "TAG is empty. Trigger this workflow from a Release event or provide the 'tag' input when using workflow_dispatch."
+            exit 1
+          }
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            AutoSubs-App/package-lock.json
+            Adobe-Extension/package-lock.json
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          npm ci --prefix Adobe-Extension
+          npm ci --prefix AutoSubs-App
+
+      - name: Build Tauri (Windows x86_64)
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          Set-Location AutoSubs-App
+          npm run tauri build -- -- --no-default-features --features windows
+
+      - name: Collect Windows artifacts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $bundleDir = Join-Path $PWD "AutoSubs-App/src-tauri/target/release/bundle/nsis"
+          $installer = Get-ChildItem -Path $bundleDir -Filter "${{ env.APP_NAME }}_*_x64-setup.exe" | Select-Object -First 1
+          if (-not $installer) {
+            $installer = Get-ChildItem -Path $bundleDir -Filter "${{ env.APP_NAME }}_*setup.exe" | Select-Object -First 1
+          }
+          if (-not $installer) {
+            Write-Error "No Windows installer found in $bundleDir"
+            exit 1
+          }
+          $sigFile = Get-ChildItem -Path $bundleDir -Filter "$($installer.Name).sig" | Select-Object -First 1
+          if (-not $sigFile) {
+            Write-Error "Signature file not found for $($installer.Name)"
+            exit 1
+          }
+
+          $targetInstaller = Join-Path $PWD "${{ env.APP_NAME }}-windows-x86_64.exe"
+          $targetSig = Join-Path $PWD "${{ env.APP_NAME }}-windows-x86_64.exe.sig"
+          Copy-Item -Path $installer.FullName -Destination $targetInstaller -Force
+          Copy-Item -Path $sigFile.FullName -Destination $targetSig -Force
+
+      - name: Upload Windows artifacts to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ env.APP_NAME }}-windows-x86_64.exe
+            ${{ env.APP_NAME }}-windows-x86_64.exe.sig
+          token: ${{ secrets.GH_TOKEN }}
+          tag_name: ${{ env.TAG }}
 
   build-linux:
     runs-on: ubuntu-latest
@@ -370,14 +441,14 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            ${APP_NAME}-linux-x86_64.deb
-            ${APP_NAME}-linux-x86_64.rpm
+            ${{ env.APP_NAME }}-linux-x86_64.deb
+            ${{ env.APP_NAME }}-linux-x86_64.rpm
           token: ${{ secrets.GH_TOKEN }}
           tag_name: ${{ env.TAG }}
 
   trigger-updater-json:
     name: Trigger updater JSON generation
-    needs: [build-mac]
+    needs: [build-mac, build-windows]
     runs-on: ubuntu-latest
     steps:
       - name: Trigger generate-updater-json workflow
