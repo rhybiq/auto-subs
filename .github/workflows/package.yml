@@ -67,7 +67,7 @@ jobs:
         env:
           CC: cl
           CXX: cl
-          CMAKE_GENERATOR: NMake Makefiles
+          CMAKE_GENERATOR: Ninja
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
