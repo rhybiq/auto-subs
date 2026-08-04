@@ -165,14 +165,19 @@ export function CreatePresetFlow({
         }
     }
 
-    const positionArray = Array.isArray(phase.kind === "naming" ? phase.settings.TextPosition : undefined)
-        ? (phase.kind === "naming" ? phase.settings.TextPosition : [])
-        : [0.5, 0.12, 0]
+    const textPositionValue =
+        phase.kind === "naming" ? phase.settings.TextPosition : undefined
+    const positionArray: [number, number, number] =
+        Array.isArray(textPositionValue) &&
+        textPositionValue.length >= 3 &&
+        textPositionValue.every((value): value is number => typeof value === "number")
+            ? [textPositionValue[0], textPositionValue[1], textPositionValue[2]]
+            : [0.5, 0.12, 0]
     const defaultTextSize = Number(
         phase.kind === "naming" ? (phase.settings.TextSize as number | undefined) : undefined,
     )
-    const defaultTextX = Number(positionArray[0] ?? 0.5)
-    const defaultTextY = Number(positionArray[1] ?? 0.12)
+    const defaultTextX = Number(positionArray[0])
+    const defaultTextY = Number(positionArray[1])
 
     return (
         <div className="space-y-4">
@@ -294,7 +299,7 @@ export function CreatePresetFlow({
                                         const nextPosition = [
                                             Math.min(1, Math.max(0, nextValue)),
                                             defaultTextY,
-                                            Array.isArray(positionArray) ? Number(positionArray[2] ?? 0) : 0,
+                                            positionArray[2],
                                         ]
                                         updatePresetAppearanceValue({ TextPosition: nextPosition })
                                     }}
@@ -317,7 +322,7 @@ export function CreatePresetFlow({
                                         const nextPosition = [
                                             defaultTextX,
                                             Math.min(1, Math.max(0, nextValue)),
-                                            Array.isArray(positionArray) ? Number(positionArray[2] ?? 0) : 0,
+                                            positionArray[2],
                                         ]
                                         updatePresetAppearanceValue({ TextPosition: nextPosition })
                                     }}
@@ -333,7 +338,7 @@ export function CreatePresetFlow({
                                     min="-10"
                                     max="10"
                                     step="0.1"
-                                    value={Array.isArray(positionArray) ? Number(positionArray[2] ?? 0) : 0}
+                                    value={Number(positionArray[2])}
                                     onChange={(e) => {
                                         const nextValue = Number(e.target.value)
                                         if (!Number.isFinite(nextValue)) return

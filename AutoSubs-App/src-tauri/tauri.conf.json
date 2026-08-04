@@ -201,7 +201,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFENjNBQjZFRkVCQTQxQTkKUldTcFFiciticXRqcmZtTlRWRzdnSHhBMFVNZkxvOGFRZThXdXFNQjFzakxqNDF0bUFyWkhwckUK",
       "endpoints": [
-        "https://github.com/tmoroney/auto-subs/releases/latest/download/latest.json"
+        "https://github.com/rhybiq/auto-subs/releases/latest/download/latest.json"
       ]
     }
   }

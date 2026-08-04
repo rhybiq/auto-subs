@@ -1,18 +1,24 @@
 name: Package rhybiq for macOS, Linux, and Windows
 on:
+  push:
+    branches:
+      - main
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       tag:
         description: 'Release tag to build for'
-        required: true
+        required: false
         type: string
 
 permissions:
   contents: write
  
 env:
-  # Resolve tag for both release-triggered and manual runs
-  TAG: ${{ github.event.release.tag_name || inputs.tag }}
+  # Resolve tag for release-triggered, manual, or push-to-main runs.
+  # Pushes to main build locally but skip release uploads unless a real release tag exists.
+  TAG: ${{ github.event.release.tag_name || inputs.tag || github.ref_name }}
   APP_NAME: rhybiq
   APP_PACKAGE_ID: com.rhybiq
 
@@ -275,6 +281,7 @@ jobs:
         fi
     
     - name: Upload Build Artifacts to Release
+      if: github.event_name != 'push'
       uses: softprops/action-gh-release@v2
       with:
         files: |
@@ -346,6 +353,7 @@ jobs:
           Copy-Item -Path $sigFile.FullName -Destination $targetSig -Force
 
       - name: Upload Windows artifacts to Release
+        if: github.event_name != 'push'
         uses: softprops/action-gh-release@v2
         with:
           files: |
@@ -438,6 +446,7 @@ jobs:
           fi
 
       - name: Upload Linux artifacts to Release
+        if: github.event_name != 'push'
         uses: softprops/action-gh-release@v2
         with:
           files: |
@@ -448,6 +457,7 @@ jobs:
 
   trigger-updater-json:
     name: Trigger updater JSON generation
+    if: github.event_name != 'push'
     needs: [build-mac, build-windows]
     runs-on: ubuntu-latest
     steps:

@@ -7,7 +7,7 @@ members = [
 resolver = "2"
 
 [package]
-name = "autosubs"
+name = "rhybiq"
 version = "3.8.0"
 description = "Transcribe and diarize audio files"
 authors = ["Tom Moroney"]
@@ -22,7 +22,7 @@ WHISPER_NO_VULKAN = "1"
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "autosubs_lib"
+name = "rhybiq_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

@@ -444,7 +444,7 @@ fn main() {
                     // The Tauri updater only supports AppImage on Linux; we distribute .deb and
                     // Flatpak instead. Fetch latest.json ourselves and emit a link for the user.
                     let current = handle.package_info().version.to_string();
-                    let endpoint = "https://github.com/tmoroney/auto-subs/releases/latest/download/latest.json";
+                    let endpoint = "https://github.com/rhybiq/auto-subs/releases/latest/download/latest.json";
                     if let Ok(client) = reqwest::Client::builder()
                         .timeout(Duration::from_secs(10))
                         .build()
