@@ -37,11 +37,7 @@ jobs:
 
           echo "Checking signatures for $TAG..."
 
-          # Required assets for a complete updater JSON. Linux does not use the
-          # Tauri updater, so it is intentionally omitted here.
           REQUIRED=(
-            "rhybiq-macos-aarch64.app.tar.gz.sig"
-            "rhybiq-macos-x86_64.app.tar.gz.sig"
             "rhybiq-windows-x86_64.exe.sig"
           )
 
@@ -56,12 +52,10 @@ jobs:
 
           if [ "$MISSING" -gt 0 ]; then
             echo ""
-            echo "⏳ Missing $MISSING required signature(s). This is expected if a platform"
-            echo "   has not finished uploading yet. Exiting cleanly; the workflow will be"
-            echo "   re-triggered when the remaining assets are uploaded."
+            echo "⏳ Windows signature not uploaded yet. Exiting cleanly; workflow will re-run when installer lands."
             echo "all_present=false" >> "$GITHUB_OUTPUT"
           else
-            echo "✅ All required signatures present."
+            echo "✅ Windows signature present."
             echo "all_present=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -70,24 +64,15 @@ jobs:
         run: |
           set -Euo pipefail
 
-          # Read signatures (they were verified in the previous step)
-          ARM_SIG=$(cat artifacts/rhybiq-macos-aarch64.app.tar.gz.sig)
-          INTEL_SIG=$(cat artifacts/rhybiq-macos-x86_64.app.tar.gz.sig)
           WINDOWS_SIG=$(cat artifacts/rhybiq-windows-x86_64.exe.sig)
-
           VERSION="${TAG#v}"
           PUB_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-
-          # Fetch release notes/name
           NOTES=$(gh release view "$TAG" --repo "$REPO" --json name --jq .name || echo "$TAG")
 
-          # Build the JSON object for all platforms that have updater support
           jq -n \
             --arg version "$VERSION" \
             --arg pub_date "$PUB_DATE" \
             --arg notes "$NOTES" \
-            --arg arm_sig "$ARM_SIG" \
-            --arg intel_sig "$INTEL_SIG" \
             --arg win_sig "$WINDOWS_SIG" \
             --arg tag "$TAG" \
             --arg repo "$REPO" \
@@ -96,8 +81,6 @@ jobs:
               pub_date: $pub_date,
               notes: $notes,
               platforms: {
-                "darwin-aarch64": { signature: $arm_sig, url: "https://github.com/\($repo)/releases/download/\($tag)/rhybiq-macos-aarch64.app.tar.gz" },
-                "darwin-x86_64": { signature: $intel_sig, url: "https://github.com/\($repo)/releases/download/\($tag)/rhybiq-macos-x86_64.app.tar.gz" },
                 "windows-x86_64": { signature: $win_sig, url: "https://github.com/\($repo)/releases/download/\($tag)/rhybiq-windows-x86_64.exe" }
               }
             }' > latest.json
@@ -109,8 +92,5 @@ jobs:
         if: steps.download-sigs.outputs.all_present == 'true'
         run: |
           set -Euo pipefail
-          # Delete existing asset if it exists
           gh release delete-asset "$TAG" latest.json --repo "$REPO" --yes || echo "No existing latest.json to delete"
-
-          # Upload new asset
           gh release upload "$TAG" latest.json --repo "$REPO" --clobber
