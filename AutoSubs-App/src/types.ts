@@ -80,6 +80,23 @@ export interface Speaker {
     track?: string;
 }
 
+/**
+ * A detected non-speech CS2 gameplay sound event (gunfire, explosion, or the
+ * C4 plant/defuse electronic beep), rendered as a bracketed caption tag
+ * (e.g. "[GUNFIRE]") alongside speech subtitles. Experimental — detected via
+ * a general-purpose audio classifier never trained on game audio, so expect
+ * false positives. Kept as its own editable/deletable list, never merged
+ * into `Subtitle[]`.
+ */
+export type GameEventKind = "gunfire" | "explosion" | "electronic_beep";
+export interface GameEvent {
+    id: number;
+    start: number;
+    end: number;
+    kind: GameEventKind;
+    confidence: number;
+}
+
 // Model Interface
 export interface Model {
     value: string
@@ -146,6 +163,9 @@ export interface Settings {
     enableDTW: boolean,
     enableForcedAlignment: boolean,
     enableGpu: boolean,
+    // Experimental: CS2 gameplay sound-event captioning (off by default).
+    enableGameEvents: boolean,
+    enableBombBeepHeuristic: boolean,
 
     // Text settings
     textDensity: "less" | "standard" | "more" | "single" | "custom",
@@ -217,6 +237,8 @@ export interface TranscriptionOptions {
     enableGpu: boolean,
     enableDiarize: boolean,
     maxSpeakers: number | null,
+    enableGameEvents: boolean,
+    enableBombBeepHeuristic: boolean,
     density: "less" | "standard" | "more" | "single" | "custom",
     maxLines: number,
     customMaxCharsPerLine?: number | undefined,

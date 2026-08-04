@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SpeakerChips } from "@/components/subtitles/speaker-chips";
+import { GameEventChips } from "@/components/subtitles/game-event-chips";
 import {
   ANIMATED_CAPTION_TEMPLATE,
   CaptionTemplateSelectionContent,
@@ -40,7 +41,7 @@ import {
   type OutputSection,
 } from "@/stores/output-panel-store";
 import { ExportPopover, type ExportFormat } from "@/components/common/export-popover";
-import type { Speaker, Template, TimelineInfo } from "@/types";
+import type { GameEvent, Speaker, Template, TimelineInfo } from "@/types";
 import { cn } from "@/lib/utils";
 
 interface OutputPanelProps {
@@ -98,7 +99,7 @@ export function OutputPanel({
   const isAdobe =
     selectedIntegration === "premiere" || selectedIntegration === "aftereffects";
 
-  const { subtitles, speakers, updateSpeakers, currentSubtitleDocumentFilename } =
+  const { subtitles, speakers, updateSpeakers, gameEvents, updateGameEvents, currentSubtitleDocumentFilename } =
     useSubtitleDocument();
 
   const {
@@ -339,6 +340,10 @@ export function OutputPanel({
     updateSpeakers(next);
   }
 
+  function handleGameEventsChange(updated: GameEvent[]) {
+    updateGameEvents(updated);
+  }
+
   async function handlePrimaryAction() {
     // The only case where the button navigates instead of committing: it
     // cannot do its job until a valid track is picked, and the label says so.
@@ -444,6 +449,8 @@ export function OutputPanel({
           hasAnimatedTemplate={hasAnimatedTemplate}
           speakers={speakers}
           onSpeakerChange={handleSpeakerChange}
+          gameEvents={gameEvents}
+          onGameEventsChange={handleGameEventsChange}
         />
         )}
       </div>
@@ -571,6 +578,8 @@ interface OutputSheetProps {
   hasAnimatedTemplate: boolean;
   speakers: Speaker[];
   onSpeakerChange: (index: number, speaker: Speaker) => void;
+  gameEvents: GameEvent[];
+  onGameEventsChange: (updated: GameEvent[]) => void;
 }
 
 function OutputSheet(props: OutputSheetProps) {
@@ -583,6 +592,7 @@ function OutputSheet(props: OutputSheetProps) {
     onFocusHandled,
     createSession,
     speakers,
+    gameEvents,
   } = props;
 
   const trackRef = React.useRef<HTMLDivElement>(null);
@@ -709,6 +719,18 @@ function OutputSheet(props: OutputSheetProps) {
               speakers={speakers}
               onSpeakerChange={props.onSpeakerChange}
               tracks={props.outputTracks}
+            />
+          </section>
+        )}
+
+        {gameEvents.length > 0 && (
+          <section className="space-y-1.5">
+            <Label className="pl-1 text-xs text-muted-foreground">
+              {t("output.gameEvents.label", { count: gameEvents.length })}
+            </Label>
+            <GameEventChips
+              gameEvents={gameEvents}
+              onGameEventsChange={props.onGameEventsChange}
             />
           </section>
         )}

@@ -109,7 +109,7 @@ function updateCargoLockVersion(filePath, version) {
   }
 
   const content = fs.readFileSync(filePath, 'utf-8');
-  const pattern = /(\[\[package\]\]\nname\s*=\s*"autosubs"\n)version\s*=\s*"[\d.]+"/;
+  const pattern = /(\[\[package\]\]\r?\nname\s*=\s*"autosubs"\r?\n)version\s*=\s*"[\d.]+"/;
   const newContent = content.replace(pattern, `$1version = "${version}"`);
 
   if (content === newContent) {
@@ -175,7 +175,7 @@ function verifyFiles(version) {
   const cargoLockPath = path.join(rootDir, 'src-tauri', 'Cargo.lock');
   if (fs.existsSync(cargoLockPath)) {
     const cargoLock = fs.readFileSync(cargoLockPath, 'utf-8');
-    const lockPattern = new RegExp(`\\[\\[package\\]\\]\\nname\\s*=\\s*"autosubs"\\nversion\\s*=\\s*"${version}"`);
+    const lockPattern = new RegExp(`\\[\\[package\\]\\]\\r?\\nname\\s*=\\s*"autosubs"\\r?\\nversion\\s*=\\s*"${version}"`);
     if (!lockPattern.test(cargoLock)) {
       console.error(`❌ Verification failed: ${path.relative(rootDir, cargoLockPath)} autosubs entry does not have version ${version}`);
       ok = false;

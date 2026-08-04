@@ -174,7 +174,7 @@ async fn main() -> Result<()> {
     };
 
     let mut engine = Engine::new(config);
-    let (segments, _, language) = engine
+    let (segments, _, language, _game_events) = engine
         .transcribe_audio(&args.audio_path, options, None, None, None, Some(content_formatting), Some(callbacks))
         .await?;
 

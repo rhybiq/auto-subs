@@ -2,13 +2,14 @@
 members = [
   ".",
   "crates/diarize",
+  "crates/game-events",
   "crates/transcription-engine",
 ]
 resolver = "2"
 
 [package]
 name = "rhybiq"
-version = "3.8.0"
+version = "1.0.0"
 description = "Transcribe and diarize audio files"
 authors = ["Tom Moroney"]
 edition = "2024"
@@ -56,6 +57,7 @@ tauri-plugin-os = "2"
 
 # Transcription engine
 transcription-engine = { path = "crates/transcription-engine", default-features = false }
+game-events = { path = "crates/game-events" }
 
 # Core utilities
 eyre = "0.6"

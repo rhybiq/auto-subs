@@ -42,6 +42,9 @@ mod tests {
             diarize_segment_path: None,
             diarize_embedding_path: None,
             aligner_model_dir: None,
+            enable_game_events: None,
+            enable_bomb_beep_heuristic: None,
+            game_events_model_path: None,
         };
 
         let res = transcribe_audio(handle, options).await;
@@ -96,6 +99,9 @@ mod tests {
             diarize_segment_path: None,
             diarize_embedding_path: None,
             aligner_model_dir: None,
+            enable_game_events: None,
+            enable_bomb_beep_heuristic: None,
+            game_events_model_path: None,
         };
 
         let res = transcribe_audio(handle, options).await;
@@ -110,6 +116,87 @@ mod tests {
                 .expect("failed to serialize VAD transcript");
             fs::write(&out_path, json).expect("failed to write VAD transcript file");
             eprintln!("Saved VAD transcript to {}", out_path);
+        }
+    }
+
+    // Exercises the experimental CS2 game-event detection path end to end
+    // (bundled YAMNet model resolution + engine wiring + offset application).
+    // Asserts structural well-formedness, not detection accuracy — there's no
+    // labeled dataset to check precision/recall against; that's manual
+    // spot-checking against real CS2 clips (see the game-events crate docs).
+    // run with: cargo test transcribe_audio_with_game_events -- --nocapture
+    #[tokio::test(flavor = "multi_thread")]
+    async fn transcribe_audio_with_game_events() {
+        let app = mock_builder()
+            .plugin(tauri_plugin_shell::init())
+            .build(mock_context(noop_assets()))
+            .expect("failed to build test app");
+        let handle = app.handle().clone();
+
+        let wav = format!("{}/tests/data/jfk.wav", env!("CARGO_MANIFEST_DIR"));
+        // `mock_context(noop_assets())` doesn't wire up real bundled-resource
+        // resolution, so point directly at the file on disk rather than
+        // relying on `app.path().resolve(_, BaseDirectory::Resource)`.
+        let model_path = format!(
+            "{}/resources/models/game-events/yamnet.onnx",
+            env!("CARGO_MANIFEST_DIR")
+        );
+
+        let options = FrontendTranscribeOptions {
+            audio_path: wav,
+            offset: Some(1.5),
+            model: "tiny.en".into(),
+            lang: Some("en".into()),
+            translate: Some(false),
+            target_language: None,
+            enable_dtw: Some(false),
+            enable_gpu: Some(true),
+            enable_diarize: Some(false),
+            enable_forced_alignment: Some(false),
+            max_speakers: None,
+            density: None,
+            max_lines: None,
+            custom_max_chars_per_line: None,
+            text_case: None,
+            remove_punctuation: None,
+            censored_words: None,
+            custom_prompt: None,
+            asr_model_path: None,
+            vad_model_path: None,
+            diarize_segment_path: None,
+            diarize_embedding_path: None,
+            aligner_model_dir: None,
+            enable_game_events: Some(true),
+            enable_bomb_beep_heuristic: Some(true),
+            game_events_model_path: Some(model_path),
+        };
+
+        let res = transcribe_audio(handle, options).await;
+        assert!(res.is_ok(), "game-events transcription failed: {:?}", res.err());
+
+        if let Ok(transcript) = res {
+            for event in &transcript.game_events {
+                assert!(event.start >= 0.0, "event start should be offset-adjusted, not negative");
+                assert!(event.end >= event.start, "event end should not precede start");
+                assert!(
+                    (0.0..=1.0).contains(&event.confidence),
+                    "confidence should be a 0..=1 score, got {}",
+                    event.confidence
+                );
+            }
+
+            let out_path = format!(
+                "{}/tests/data/transcript-game-events.json",
+                env!("CARGO_MANIFEST_DIR")
+            );
+            let json = serde_json::to_string_pretty(&transcript)
+                .expect("failed to serialize game-events transcript");
+            fs::write(&out_path, json).expect("failed to write game-events transcript file");
+            eprintln!(
+                "Saved game-events transcript ({} event(s)) to {}",
+                transcript.game_events.len(),
+                out_path
+            );
         }
     }
 }

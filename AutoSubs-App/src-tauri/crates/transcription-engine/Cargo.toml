@@ -9,6 +9,7 @@ publish = false
 [dependencies]
 whisper-rs = { version = "0.16.0", default-features = false, features = ["tracing_backend"] }
 diarize = { path = "../diarize" }
+game-events = { path = "../game-events" }
 transcribe-rs = { version = "0.3.11", features = ["onnx"] }
 hf-hub = "0.5.0"
 dirs = "5.0"

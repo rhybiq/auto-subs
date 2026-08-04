@@ -17,7 +17,7 @@ import {
   remove,
 } from "@tauri-apps/plugin-fs";
 import { platform } from "@tauri-apps/plugin-os";
-import { Subtitle, Speaker } from "@/types";
+import { Subtitle, Speaker, GameEvent } from "@/types";
 
 const TRANSCRIPT_INDEX_FILENAME = "transcript-index.json";
 
@@ -138,6 +138,7 @@ export interface StoredSubtitleDocument {
   speakers: Speaker[];
   originalSegments: Subtitle[];
   segments: Subtitle[];
+  gameEvents: GameEvent[];
   metadata: TranscriptMetadata;
   transcriptId?: string;
   timelineId?: string;
@@ -733,7 +734,7 @@ export async function saveSubtitleDocument(
   transcript: any,
   filename: string,
   options?: SaveSubtitleDocumentOptions,
-): Promise<{ segments: Subtitle[]; speakers: Speaker[] }> {
+): Promise<{ segments: Subtitle[]; speakers: Speaker[]; gameEvents: GameEvent[] }> {
   try {
     const storageDir = await getSubtitleDocumentsDir();
     const filePath = await join(storageDir, filename);
@@ -793,6 +794,8 @@ export async function saveSubtitleDocument(
 
     // Speakers are now aggregated in the Rust backend and included in the transcript
     const speakers: Speaker[] = transcript.speakers || [];
+    // Empty unless enableGameEvents was requested; see transcript_types::GameEvent.
+    const gameEvents: GameEvent[] = transcript.gameEvents || [];
     const metadata = buildMetadata(transcript, filename, options?.metadata);
 
     const transcriptData: StoredSubtitleDocument = {
@@ -812,13 +815,14 @@ export async function saveSubtitleDocument(
       speakers: speakers,
       originalSegments: originalSegments,
       segments: segments,
+      gameEvents: gameEvents,
     };
 
     // Save transcript to file
     await writeTextFile(filePath, JSON.stringify(transcriptData, null, 2));
     await upsertSubtitleDocumentIndexItem(filename, metadata);
     console.log("Successfully saved transcript to:", filePath);
-    return { segments, speakers };
+    return { segments, speakers, gameEvents };
   } catch (error) {
     console.error("Failed to save transcript:", error);
     throw new Error(`Failed to save transcript: ${String(error)}`);
@@ -842,15 +846,15 @@ export async function loadSubtitleDocumentSubtitles(
   return transcript.segments || [];
 }
 
-// Update the transcript file for the specified timeline with new speakers or subtitles
+// Update the transcript file for the specified timeline with new speakers, subtitles, or game events
 export async function updateSubtitleDocument(
   filename: string,
-  opts: { subtitles?: Subtitle[]; speakers?: Speaker[] },
+  opts: { subtitles?: Subtitle[]; speakers?: Speaker[]; gameEvents?: GameEvent[] },
 ) {
-  const { speakers, subtitles } = opts;
+  const { speakers, subtitles, gameEvents } = opts;
 
-  // if no speakers or subtitles, do nothing
-  if (!speakers && !subtitles) return;
+  // if nothing to update, do nothing
+  if (!speakers && !subtitles && !gameEvents) return;
 
   // read current file
   let transcript = await readSubtitleDocument(filename);
@@ -858,12 +862,15 @@ export async function updateSubtitleDocument(
 
   const metadata = buildMetadata(transcript, filename, transcript.metadata);
 
-  // update speakers and subtitles
+  // update speakers, subtitles, and game events
   if (speakers) {
     transcript.speakers = speakers;
   }
   if (subtitles) {
     transcript.segments = subtitles;
+  }
+  if (gameEvents) {
+    transcript.gameEvents = gameEvents;
   }
 
   transcript.metadata = metadata;

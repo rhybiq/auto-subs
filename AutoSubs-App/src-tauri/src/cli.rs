@@ -22,7 +22,7 @@ use tauri_plugin_cli::{CliExt, Matches};
 #[allow(unused_imports)]
 use std::process::Command;
 
-use crate::transcript_types::{Segment, Transcript};
+use crate::transcript_types::{GameEventKind, Segment, Transcript};
 use crate::transcription_api::{FrontendTranscribeOptions, transcribe_audio};
 use transcription_engine::TextDensity;
 
@@ -201,6 +201,9 @@ async fn run_transcribe<R: Runtime>(app: AppHandle<R>, m: Matches) -> ! {
         diarize_segment_path: None,
         diarize_embedding_path: None,
         aligner_model_dir: None,
+        enable_game_events: Some(arg_flag(&m, "game-events")),
+        enable_bomb_beep_heuristic: Some(arg_flag(&m, "bomb-beep-heuristic")),
+        game_events_model_path: None,
     };
 
     let output = arg_str(&m, "output");
@@ -423,17 +426,55 @@ fn text_line(start: f64, speaker: &Option<String>, text: &str) -> String {
     format!("[{}] {prefix}{text}\n", ts_clock(start))
 }
 
+struct Cue {
+    start: f64,
+    end: f64,
+    text: String,
+}
+
+/// Bracketed tag for a detected CS2 sound event. Standalone convention (not a
+/// text prefix, unlike `speaker_prefix`) since gunfire/explosions frequently
+/// overlap dialogue, so there's often no single "nearest" segment to merge
+/// the tag into without corrupting its text.
+fn event_tag(kind: GameEventKind) -> &'static str {
+    match kind {
+        GameEventKind::Gunfire => "[GUNFIRE]",
+        GameEventKind::Explosion => "[EXPLOSION]",
+        GameEventKind::ElectronicBeep => "[BEEP]",
+    }
+}
+
+/// Speech segments and detected game-event tags merged into one time-sorted
+/// cue stream, so `[GUNFIRE]`-style tags land in timestamp order alongside
+/// dialogue rather than needing per-segment merge logic.
+fn build_cues(t: &Transcript) -> Vec<Cue> {
+    let mut cues: Vec<Cue> = t
+        .segments
+        .iter()
+        .map(|seg| Cue {
+            start: seg.start,
+            end: seg.end.max(seg.start),
+            text: format!("{}{}", speaker_prefix(seg), seg.text.trim()),
+        })
+        .collect();
+    cues.extend(t.game_events.iter().map(|ev| Cue {
+        start: ev.start,
+        end: ev.end.max(ev.start),
+        text: event_tag(ev.kind).to_string(),
+    }));
+    cues.sort_by(|a, b| a.start.partial_cmp(&b.start).unwrap_or(std::cmp::Ordering::Equal));
+    cues
+}
+
 fn render_srt(t: &Transcript) -> String {
     let mut out = String::new();
-    for (i, seg) in t.segments.iter().enumerate() {
-        let end = seg.end.max(seg.start);
+    for (i, cue) in build_cues(t).into_iter().enumerate() {
         out.push_str(&format!(
-            "{}\n{} --> {}\n{}{}\n\n",
+            "{}\n{} --> {}\n{}\n\n",
             i + 1,
-            ts_srt(seg.start),
-            ts_srt(end),
-            speaker_prefix(seg),
-            seg.text.trim()
+            ts_srt(cue.start),
+            ts_srt(cue.end),
+            cue.text
         ));
     }
     out
@@ -441,15 +482,8 @@ fn render_srt(t: &Transcript) -> String {
 
 fn render_vtt(t: &Transcript) -> String {
     let mut out = String::from("WEBVTT\n\n");
-    for seg in &t.segments {
-        let end = seg.end.max(seg.start);
-        out.push_str(&format!(
-            "{} --> {}\n{}{}\n\n",
-            ts_vtt(seg.start),
-            ts_vtt(end),
-            speaker_prefix(seg),
-            seg.text.trim()
-        ));
+    for cue in build_cues(t) {
+        out.push_str(&format!("{} --> {}\n{}\n\n", ts_vtt(cue.start), ts_vtt(cue.end), cue.text));
     }
     out
 }

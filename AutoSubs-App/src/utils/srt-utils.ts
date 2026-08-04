@@ -1,4 +1,34 @@
-import { Subtitle } from "../types";
+import { GameEvent, GameEventKind, Subtitle } from "../types";
+
+const EVENT_TAG: Record<GameEventKind, string> = {
+    gunfire: "[GUNFIRE]",
+    explosion: "[EXPLOSION]",
+    electronic_beep: "[BEEP]",
+};
+
+/**
+ * Merges detected game events into the subtitle array as standalone,
+ * bracket-tagged cues (e.g. "[GUNFIRE]"), time-sorted alongside the speech
+ * cues so `generateSrt`'s overlap/min-duration fixups (which assume
+ * ascending, pre-sorted input) apply correctly to the combined sequence.
+ * Gunfire/explosions frequently overlap dialogue, so there's often no single
+ * "nearest" speech cue to merge a tag's text into — standalone cues avoid
+ * that problem entirely. Synthetic cues use negative ids so they can never
+ * collide with real subtitle ids.
+ */
+export function mergeGameEventCues(subtitles: Subtitle[], events: GameEvent[]): Subtitle[] {
+    if (!events || events.length === 0) return subtitles;
+
+    const eventCues: Subtitle[] = events.map((event, index) => ({
+        id: -1 - index,
+        start: event.start,
+        end: Math.max(event.end, event.start + 0.6),
+        text: EVENT_TAG[event.kind] ?? "[EVENT]",
+        words: [],
+    }));
+
+    return [...subtitles, ...eventCues].sort((a, b) => Number(a.start) - Number(b.start));
+}
 
 // src/utils/srtUtils.ts
 export function formatTimecode(seconds: number): string {

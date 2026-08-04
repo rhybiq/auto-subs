@@ -29,6 +29,7 @@ pub enum SegmentStage {
 pub type LabeledProgressFn = dyn Fn(i32, ProgressType, &str) + Send + Sync; // progress with type and label
 pub type NewSegmentFn = dyn Fn(usize, &Segment, SegmentStage) + Send + Sync; // (index, segment, stage) segment notifications
 pub type SpeakersIdentifiedFn = dyn Fn(usize) + Send + Sync; // number of distinct speakers found by diarization
+pub type GameEventsDetectedFn = dyn Fn(usize) + Send + Sync; // number of CS2 sound events detected
 
 /// Owned callbacks shared between the pipeline and spawned worker tasks.
 #[derive(Clone)]
@@ -36,6 +37,7 @@ pub struct Callbacks {
     pub progress: Option<Arc<LabeledProgressFn>>,
     pub new_segment_callback: Option<Arc<NewSegmentFn>>,
     pub speakers_identified: Option<Arc<SpeakersIdentifiedFn>>,
+    pub game_events_detected: Option<Arc<GameEventsDetectedFn>>,
     pub is_cancelled: Option<Arc<dyn Fn() -> bool + Send + Sync>>,
 }
 
@@ -45,6 +47,7 @@ impl Default for Callbacks {
             progress: None,
             new_segment_callback: None,
             speakers_identified: None,
+            game_events_detected: None,
             is_cancelled: None,
         }
     }
@@ -84,6 +87,17 @@ pub struct TranscribeOptions {
     pub enable_diarize: Option<bool>, // Labels segments with speaker_id
     pub enable_forced_alignment: Option<bool>,
     pub max_speakers: Option<usize>, // Max number of speakers to detect (otherwise auto detection may create too many speakers)
+
+    // Experimental: detect CS2-relevant non-speech sound events (gunfire,
+    // explosions) via a general-purpose audio classifier. Off by default —
+    // the classifier was never trained on game audio, so expect false
+    // positives on footsteps/UI sounds. Requires `EngineConfig.game_events_model_path`.
+    pub enable_game_events: Option<bool>,
+    // Independent narrowband heuristic for CS2's C4 plant/defuse beep; has no
+    // AudioSet class and no semantic understanding (can't tell planted vs.
+    // defusing). Only takes effect when `enable_game_events` is also true.
+    pub enable_bomb_beep_heuristic: Option<bool>,
+
     pub advanced: Option<AdvancedTranscribe>, // Optional knobs
 }
 
@@ -99,6 +113,8 @@ impl Default for TranscribeOptions {
             enable_diarize: None,
             enable_forced_alignment: Some(false),
             max_speakers: None,
+            enable_game_events: None,
+            enable_bomb_beep_heuristic: None,
             advanced: None,
         }
     }

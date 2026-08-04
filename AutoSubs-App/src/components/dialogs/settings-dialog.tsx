@@ -1,5 +1,5 @@
 import * as React from "react";
-import { AudioLines, Gauge, Clock, GraduationCap, Terminal, ChevronDown } from "lucide-react";
+import { AudioLines, Gauge, Clock, GraduationCap, Terminal, ChevronDown, Crosshair } from "lucide-react";
 import { DeleteIcon, type DeleteIconHandle } from "@/components/ui/icons/delete";
 import { useSettingsStore } from "@/stores/settings-store";
 import { ask, message } from "@tauri-apps/plugin-dialog";
@@ -55,6 +55,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const enableGpu = useSettingsStore((s) => s.enableGpu);
   const enableDTW = useSettingsStore((s) => s.enableDTW);
   const enableForcedAlignment = useSettingsStore((s) => s.enableForcedAlignment);
+  const enableGameEvents = useSettingsStore((s) => s.enableGameEvents);
+  const enableBombBeepHeuristic = useSettingsStore((s) => s.enableBombBeepHeuristic);
   const translate = useSettingsStore((s) => s.translate);
   const updateSetting = useSettingsStore((s) => s.updateSetting);
   const resetSettings = useSettingsStore((s) => s.resetSettings);
@@ -356,6 +358,57 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                       <Switch
                         checked={enableGpu}
                         onCheckedChange={(checked) => updateSetting("enableGpu", checked)}
+                      />
+                    </ItemActions>
+                  </Item>
+                </Field>
+
+                <Field>
+                  <Item variant="outline" size="sm">
+                    <ItemMedia variant="icon" className="bg-red-100 dark:bg-red-900/30">
+                      <Crosshair className="size-4 text-red-600 dark:text-red-400" />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>{t("settings.gameEvents.title", "CS2 sound events")}</ItemTitle>
+                      <ItemDescription className="text-xs leading-tight line-clamp-2">
+                        {t(
+                          "settings.gameEvents.description",
+                          "Experimental: tag gunfire/explosions as [GUNFIRE]/[EXPLOSION] captions. May false-positive on footsteps or UI sounds.",
+                        )}
+                      </ItemDescription>
+                    </ItemContent>
+                    <ItemActions>
+                      <Switch
+                        checked={enableGameEvents}
+                        onCheckedChange={(checked) => updateSetting("enableGameEvents", checked)}
+                        aria-label={t("settings.gameEvents.title", "CS2 sound events")}
+                      />
+                    </ItemActions>
+                  </Item>
+                </Field>
+
+                <Field>
+                  <Item variant="outline" size="sm">
+                    <ItemMedia variant="icon" className="bg-red-100 dark:bg-red-900/30">
+                      <Crosshair className="size-4 text-red-600 dark:text-red-400" />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>{t("settings.gameEvents.beepTitle", "C4 beep tag")}</ItemTitle>
+                      <ItemDescription className="text-xs leading-tight line-clamp-2">
+                        {enableGameEvents
+                          ? t(
+                              "settings.gameEvents.beepDescription",
+                              "Also flag the plant/defuse beep as [BEEP]. Heuristic only — can't tell planted vs. defusing.",
+                            )
+                          : t("settings.gameEvents.beepRequiresParent", "Requires CS2 sound events above.")}
+                      </ItemDescription>
+                    </ItemContent>
+                    <ItemActions>
+                      <Switch
+                        checked={enableBombBeepHeuristic}
+                        disabled={!enableGameEvents}
+                        onCheckedChange={(checked) => updateSetting("enableBombBeepHeuristic", checked)}
+                        aria-label={t("settings.gameEvents.beepTitle", "C4 beep tag")}
                       />
                     </ItemActions>
                   </Item>

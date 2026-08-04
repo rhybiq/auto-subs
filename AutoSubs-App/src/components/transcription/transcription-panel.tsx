@@ -48,6 +48,8 @@ export function TranscriptionPanel({
     enableGpu,
     enableDiarize,
     maxSpeakers,
+    enableGameEvents,
+    enableBombBeepHeuristic,
     textDensity,
     maxLinesPerSubtitle,
     customMaxCharsPerLine,
@@ -70,6 +72,8 @@ export function TranscriptionPanel({
       enableGpu: s.enableGpu,
       enableDiarize: s.enableDiarize,
       maxSpeakers: s.maxSpeakers,
+      enableGameEvents: s.enableGameEvents,
+      enableBombBeepHeuristic: s.enableBombBeepHeuristic,
       textDensity: s.textDensity,
       maxLinesPerSubtitle: s.maxLinesPerSubtitle,
       customMaxCharsPerLine: s.customMaxCharsPerLine,
@@ -329,6 +333,8 @@ export function TranscriptionPanel({
           typeof maxSpeakers === "number" && !isNaN(maxSpeakers)
             ? Math.floor(maxSpeakers) || null
             : null,
+        enableGameEvents,
+        enableBombBeepHeuristic,
         density: textDensity,
         maxLines: Math.max(1, Math.floor(maxLinesPerSubtitle ?? 1)),
         customMaxCharsPerLine:

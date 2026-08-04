@@ -21,6 +21,13 @@
       "translationIncompatible": "Unavailable while translating, text will not match audio",
       "summary": "Forced alignment"
     },
+    "gameEvents": {
+      "title": "CS2 sound events",
+      "description": "Experimental: tag gunfire/explosions as [GUNFIRE]/[EXPLOSION] captions. May false-positive on footsteps or UI sounds.",
+      "beepTitle": "C4 beep tag",
+      "beepDescription": "Also flag the plant/defuse beep as [BEEP]. Heuristic only — can't tell planted vs. defusing.",
+      "beepRequiresParent": "Requires CS2 sound events above."
+    },
     "uiLanguage": {
       "title": "App Language",
       "description": "Updates menus and buttons"
@@ -676,6 +683,16 @@
     "speakers": {
       "label_one": "{{count}} speaker",
       "label_other": "{{count}} speakers"
+    },
+    "gameEvents": {
+      "label_one": "{{count}} detected sound event",
+      "label_other": "{{count}} detected sound events",
+      "remove": "Remove",
+      "kind": {
+        "gunfire": "Gunfire",
+        "explosion": "Explosion",
+        "electronic_beep": "Beep"
+      }
     },
     "speakerCount_one": "{{count}} speaker",
     "speakerCount_other": "{{count}} speakers",

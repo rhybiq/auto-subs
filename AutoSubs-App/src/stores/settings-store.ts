@@ -48,6 +48,10 @@ export const DEFAULT_SETTINGS: Settings = {
   enableGpu: true,
   enableDiarize: false,
   maxSpeakers: null,
+  // Experimental: CS2 gameplay sound-event captioning, off by default —
+  // the classifier was never trained on game audio.
+  enableGameEvents: false,
+  enableBombBeepHeuristic: false,
   exportRange: "inout",
 
   // Text settings

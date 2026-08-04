@@ -26,6 +26,10 @@ pub struct EngineConfig {
     pub diarize_embedding_model_path: Option<String>, // Optional path to diarization embedding model; if None, it will be downloaded
     pub aligner_model_dir: Option<String>,
     pub asr_model_path: Option<String>, // Optional pre-resolved ASR model path
+    // Path to the bundled YAMNet ONNX model (app resource, not downloaded by
+    // the engine — the caller resolves it via Tauri's resource dir and must
+    // supply it here whenever `TranscribeOptions.enable_game_events` is set).
+    pub game_events_model_path: Option<String>,
 }
 
 impl Default for EngineConfig {
@@ -41,6 +45,7 @@ impl Default for EngineConfig {
             diarize_embedding_model_path: None,
             aligner_model_dir: None,
             asr_model_path: None,
+            game_events_model_path: None,
         }
     }
 }
@@ -444,7 +449,7 @@ impl Engine {
         custom_max_chars_per_line: Option<usize>,
         content_formatting: Option<ContentFormatting>,
         cb: Option<Callbacks>,
-    ) -> eyre::Result<(Vec<Segment>, Vec<Segment>, String)> {
+    ) -> eyre::Result<(Vec<Segment>, Vec<Segment>, String, Vec<game_events::GameEvent>)> {
         let cb = cb.unwrap_or_default();
         if !std::path::PathBuf::from(audio_path).exists() {
             eyre::bail!("audio file doesn't exist")
@@ -492,6 +497,48 @@ impl Engine {
         if original_samples.is_empty() {
             eyre::bail!("audio file contains no samples")
         }
+
+        // Runs on the full mono-16kHz buffer directly, not on VAD/diarize
+        // speech segments — gunfire/explosions are non-speech and VAD would
+        // fragment or exclude them as silence. Independent of the ASR
+        // pipeline below, so it doesn't affect segment offsets/timing.
+        let game_events = if options.enable_game_events.unwrap_or(false) {
+            let model_path = self.cfg.game_events_model_path.as_ref().ok_or_else(|| {
+                eyre::eyre!("game-events model path not configured (EngineConfig.game_events_model_path)")
+            })?;
+            if let Some(callback) = cb.progress.as_deref() {
+                callback(0, crate::ProgressType::Analyze, "progressSteps.analyze.gameEvents");
+            }
+
+            let opts = game_events::GameEventOptions {
+                model_path: PathBuf::from(model_path),
+                min_confidence: 0.3,
+                enable_beep_heuristic: options.enable_bomb_beep_heuristic.unwrap_or(false),
+            };
+            let progress_arc = cb.progress.clone();
+            let game_event_progress = move |pct: i32| {
+                if let Some(p) = progress_arc.as_deref() {
+                    p(pct, crate::ProgressType::Analyze, "progressSteps.analyze.gameEvents");
+                }
+            };
+            let events = game_events::detect_events(
+                &original_samples,
+                16_000,
+                &opts,
+                Some(&game_event_progress),
+                cb.is_cancelled.as_deref(),
+            )?;
+
+            if let Some(callback) = cb.game_events_detected.as_deref() {
+                callback(events.len());
+            }
+            if let Some(callback) = cb.progress.as_deref() {
+                callback(100, crate::ProgressType::Analyze, "progressSteps.analyze.gameEvents");
+            }
+            events
+        } else {
+            Vec::new()
+        };
 
         let speech_segments = prepare_speech_segments(
             &mut self.models,
@@ -753,7 +800,7 @@ impl Engine {
             audio_duration_sec / elapsed.as_secs_f64()
         );
 
-        Ok((segments, formatted_segments, output_lang))
+        Ok((segments, formatted_segments, output_lang, game_events))
     }
 
     pub async fn delete_whisper_model(&self, model_name: &str) -> eyre::Result<()> {

@@ -1,6 +1,9 @@
 use crate::audio_preprocess as audio;
 use crate::models::get_cache_dir;
-use crate::transcript_types::{ColorModifier, Sample, Segment, Speaker, Transcript, WordTimestamp};
+use crate::transcript_types::{
+    ColorModifier, GameEvent as AppGameEvent, GameEventKind as AppGameEventKind, Sample, Segment, Speaker, Transcript,
+    WordTimestamp,
+};
 use dirs;
 use eyre::Result;
 use serde::{Deserialize, Serialize};
@@ -9,10 +12,11 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use tauri::{AppHandle, Emitter, Manager, Runtime, command};
+use tauri::{path::BaseDirectory, AppHandle, Emitter, Manager, Runtime, command};
 use transcription_engine::{
-    Callbacks, ContentFormatting, Engine, EngineConfig, LabeledProgressFn, PostProcessConfig, ProgressType, SegmentStage,
-    Segment as WDSegment, TextCase, TextDensity, TranscribeOptions, process_segments,
+    Callbacks, ContentFormatting, Engine, EngineConfig, GameEventKind as WDGameEventKind, LabeledProgressFn,
+    PostProcessConfig, ProgressType, SegmentStage, Segment as WDSegment, TextCase, TextDensity, TranscribeOptions,
+    process_segments,
 };
 
 // Frontend-compatible progress data type
@@ -115,6 +119,12 @@ pub struct FrontendTranscribeOptions {
     pub diarize_segment_path: Option<String>,
     pub diarize_embedding_path: Option<String>,
     pub aligner_model_dir: Option<String>,
+    // Experimental CS2 sound-event detection (opt-in, off unless requested).
+    pub enable_game_events: Option<bool>,
+    pub enable_bomb_beep_heuristic: Option<bool>,
+    // Override for the bundled YAMNet model path; normally resolved from the
+    // app's bundled resources, only useful for testing.
+    pub game_events_model_path: Option<String>,
 }
 
 /// Parse a frontend text_case string ("none"|"lowercase"|"uppercase"|"titlecase") into TextCase.
@@ -161,6 +171,8 @@ struct TranscribeOptionsLogView<'a> {
     remove_punctuation: Option<bool>,
     censored_words_count: usize,
     custom_prompt_chars: usize,
+    enable_game_events: Option<bool>,
+    enable_bomb_beep_heuristic: Option<bool>,
 }
 
 impl<'a> From<&'a FrontendTranscribeOptions> for TranscribeOptionsLogView<'a> {
@@ -191,6 +203,8 @@ impl<'a> From<&'a FrontendTranscribeOptions> for TranscribeOptionsLogView<'a> {
                 .as_deref()
                 .map(|v| v.trim().chars().count())
                 .unwrap_or(0),
+            enable_game_events: o.enable_game_events,
+            enable_bomb_beep_heuristic: o.enable_bomb_beep_heuristic,
         }
     }
 }
@@ -367,6 +381,49 @@ pub async fn transcribe_audio<R: Runtime>(
             Err(e) => tracing::warn!("list_cached_models failed: {}", e),
         }
 
+        // The YAMNet model is bundled as an app resource (not downloaded), so
+        // it only needs resolving when game-event detection is requested.
+        //
+        // This is the first Rust-side use of Tauri's resource resolution in
+        // this codebase — everything else under `resources/` (the Lua
+        // modules) is only ever read by the separate Resolve-side Lua
+        // runtime, never through `app.path()`. In an unbundled dev run,
+        // `BaseDirectory::Resource` may not resolve to the source tree, so
+        // fall back to a `CARGO_MANIFEST_DIR`-relative path in debug builds
+        // rather than failing outright.
+        let game_events_model_path: Option<String> = if options.enable_game_events.unwrap_or(false) {
+            match options.game_events_model_path.clone() {
+                Some(p) => Some(p),
+                None => {
+                    const RESOURCE_REL_PATH: &str = "resources/models/game-events/yamnet.onnx";
+                    let resolved = app
+                        .path()
+                        .resolve(RESOURCE_REL_PATH, BaseDirectory::Resource)
+                        .ok()
+                        .filter(|p| p.exists());
+
+                    let dev_fallback = || {
+                        #[cfg(debug_assertions)]
+                        {
+                            let p = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(RESOURCE_REL_PATH);
+                            p.exists().then_some(p)
+                        }
+                        #[cfg(not(debug_assertions))]
+                        {
+                            None
+                        }
+                    };
+
+                    let path = resolved
+                        .or_else(dev_fallback)
+                        .ok_or_else(|| "Could not locate the bundled game-events (YAMNet) model".to_string())?;
+                    Some(path.to_string_lossy().to_string())
+                }
+            }
+        } else {
+            None
+        };
+
         // Create engine config with proper cache directory and any pre-resolved model paths
         let engine_config = EngineConfig {
             cache_dir,
@@ -379,6 +436,7 @@ pub async fn transcribe_audio<R: Runtime>(
             diarize_embedding_model_path: options.diarize_embedding_path.clone(),
             aligner_model_dir: options.aligner_model_dir.clone(),
             asr_model_path: options.asr_model_path.clone(),
+            game_events_model_path,
         };
 
         let mut engine = Engine::new(engine_config);
@@ -398,6 +456,8 @@ pub async fn transcribe_audio<R: Runtime>(
             Some(0) => None,
             other => other,
         };
+        transcribe_options.enable_game_events = options.enable_game_events;
+        transcribe_options.enable_bomb_beep_heuristic = options.enable_bomb_beep_heuristic;
         // Handle translation - use target_language from frontend.
         // `translate_target` always carries the target (including "en").
         // `use_native_translation` requests the model's built-in translation
@@ -478,10 +538,17 @@ pub async fn transcribe_audio<R: Runtime>(
             let _ = speakers_app.emit("speakers-identified", serde_json::json!({ "count": count }));
         });
 
+        let game_events_app = app.clone();
+        let game_events_detected: Arc<dyn Fn(usize) + Send + Sync> = Arc::new(move |count: usize| {
+            tracing::info!("game-events detection found {count} event(s)");
+            let _ = game_events_app.emit("game-events-detected", serde_json::json!({ "count": count }));
+        });
+
         let callbacks = Callbacks {
             progress: Some(progress_callback),
             new_segment_callback: Some(segment_callback),
             speakers_identified: Some(speakers_identified),
+            game_events_detected: Some(game_events_detected),
             is_cancelled: Some(is_cancelled),
         };
 
@@ -503,7 +570,7 @@ pub async fn transcribe_audio<R: Runtime>(
         // `raw_segments` preserves the engine's pre-formatting word data (used as
         // `originalSegments` for reformatting). `segments` are fully formatted for display.
         tracing::info!("transcription pipeline started");
-        let (raw_segments, segments, output_language) = engine
+        let (raw_segments, segments, output_language, game_events) = engine
             .transcribe_audio(
                 &audio_path.to_string_lossy(),
                 transcribe_options,
@@ -562,6 +629,25 @@ pub async fn transcribe_audio<R: Runtime>(
             apply_offset_to_segments(&mut app_raw_segments, offset);
         }
 
+        let mut app_game_events: Vec<AppGameEvent> = game_events
+            .into_iter()
+            .enumerate()
+            .map(|(id, e)| AppGameEvent {
+                id,
+                start: e.start,
+                end: e.end,
+                kind: match e.kind {
+                    WDGameEventKind::Gunfire => AppGameEventKind::Gunfire,
+                    WDGameEventKind::Explosion => AppGameEventKind::Explosion,
+                    WDGameEventKind::ElectronicBeep => AppGameEventKind::ElectronicBeep,
+                },
+                confidence: e.confidence,
+            })
+            .collect();
+        if let Some(offset) = options.offset {
+            apply_offset_to_game_events(&mut app_game_events, offset);
+        }
+
         // Aggregate speakers if diarization was enabled (from display segments, which
         // are the ones actually shown; raw segments share the same speaker_id values).
         let (speakers, segments) = if options.enable_diarize.unwrap_or(false) {
@@ -576,6 +662,7 @@ pub async fn transcribe_audio<R: Runtime>(
             segments,
             original_segments: app_raw_segments,
             speakers,
+            game_events: app_game_events,
         })
     }
     .await;
@@ -703,6 +790,13 @@ fn apply_offset_to_segments(segments: &mut [Segment], offset: f64) {
                 word.end = round_to_places(word.end + offset, 3);
             }
         }
+    }
+}
+
+fn apply_offset_to_game_events(events: &mut [AppGameEvent], offset: f64) {
+    for event in events.iter_mut() {
+        event.start = round_to_places(event.start + offset, 3);
+        event.end = round_to_places(event.end + offset, 3);
     }
 }
 

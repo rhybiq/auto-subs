@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
-import { Subtitle, Speaker, Settings } from '@/types';
+import { Subtitle, Speaker, Settings, GameEvent } from '@/types';
 import { useResolve } from '@/contexts/ResolveContext';
 import { useAdobe } from '@/contexts/AdobeContext';
 import { useIntegration, type Integration } from '@/contexts/IntegrationContext';
@@ -18,7 +18,7 @@ import {
   type TranscriptMetadata,
 } from '../utils/file-utils';
 import { reformatSubtitles as rustReformatSubtitles } from '@/api/formatting-api';
-import { generateSrt, parseSrt } from '@/utils/srt-utils';
+import { generateSrt, mergeGameEventCues, parseSrt } from '@/utils/srt-utils';
 import { loadFontForLanguage } from '@/lib/font-loader';
 
 function getTranscriptSourceType(
@@ -41,6 +41,7 @@ function getTranscriptSourceType(
 interface SubtitleDocumentContextType {
   subtitles: Subtitle[];
   speakers: Speaker[];
+  gameEvents: GameEvent[];
   markIn: number;
   currentSubtitleDocumentFilename: string | null;
   /**
@@ -51,8 +52,10 @@ interface SubtitleDocumentContextType {
   currentSubtitleDocumentSourceName: string | null;
   setSubtitles: (subtitles: Subtitle[]) => void;
   setSpeakers: (speakers: Speaker[]) => void;
+  setGameEvents: (gameEvents: GameEvent[]) => void;
   setCurrentSubtitleDocumentFilename: (filename: string | null) => void;
   updateSpeakers: (newSpeakers: Speaker[]) => Promise<void>;
+  updateGameEvents: (newGameEvents: GameEvent[]) => Promise<void>;
   updateSubtitles: (newSubtitles: Subtitle[], filename?: string) => Promise<void>;
   flushPendingSubtitleSave: () => Promise<void>;
   processTranscriptionResults: (transcript: any, settings: Settings, fileInput: string | null, timelineId: string) => Promise<string>;
@@ -67,6 +70,7 @@ const SubtitleDocumentContext = createContext<SubtitleDocumentContextType | null
 export function SubtitleDocumentProvider({ children }: { children: React.ReactNode }) {
   const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
+  const [gameEvents, setGameEvents] = useState<GameEvent[]>([]);
   const [markIn, setMarkIn] = useState(0);
   const [currentSubtitleDocumentFilename, setCurrentSubtitleDocumentFilename] = useState<string | null>(null);
   const [currentSubtitleDocumentSourceName, setCurrentSubtitleDocumentSourceName] = useState<string | null>(null);
@@ -106,6 +110,7 @@ export function SubtitleDocumentProvider({ children }: { children: React.ReactNo
         setMarkIn(transcript.mark_in);
         setSubtitles(transcript.segments || []);
         setSpeakers(transcript.speakers || []);
+        setGameEvents(transcript.gameEvents || []);
         loadFontForLanguage(transcript.language);
       } else {
         console.warn("No transcript found for:", filename);
@@ -113,6 +118,7 @@ export function SubtitleDocumentProvider({ children }: { children: React.ReactNo
         setCurrentSubtitleDocumentSourceName(null);
         setSubtitles([]);
         setSpeakers([]);
+        setGameEvents([]);
       }
     } else {
       console.log("No matching transcript found");
@@ -120,6 +126,7 @@ export function SubtitleDocumentProvider({ children }: { children: React.ReactNo
       setCurrentSubtitleDocumentSourceName(null);
       setSubtitles([]);
       setSpeakers([]);
+      setGameEvents([]);
     }
   }, []);
 
@@ -136,6 +143,25 @@ export function SubtitleDocumentProvider({ children }: { children: React.ReactNo
       }
     } catch (error) {
       console.error('Failed to update speakers in file:', error);
+    }
+  }
+
+  // Detected game events are experimental and expected to have false
+  // positives, so unlike speakers (relabeled, not removed) this needs to
+  // support deletion — callers just pass the filtered array.
+  async function updateGameEvents(newGameEvents: GameEvent[]) {
+    console.log("Updating game events:", newGameEvents);
+    setGameEvents(newGameEvents);
+
+    try {
+      if (currentSubtitleDocumentFilename) {
+        await updateSubtitleDocument(currentSubtitleDocumentFilename, {
+          gameEvents: newGameEvents
+        });
+        console.log('Game events updated in both UI and file');
+      }
+    } catch (error) {
+      console.error('Failed to update game events in file:', error);
     }
   }
 
@@ -216,7 +242,7 @@ export function SubtitleDocumentProvider({ children }: { children: React.ReactNo
     // Save transcript to JSON file.
     // Content formatting (case, punctuation, censoring) is already applied by the
     // Rust backend during transcription, so no post-processing is needed here.
-    const { segments, speakers } = await saveSubtitleDocument(transcript, filename, {
+    const { segments, speakers, gameEvents } = await saveSubtitleDocument(transcript, filename, {
       metadata: {
         sourceType: getTranscriptSourceType(settings.audioInputMode, selectedIntegration),
         displayName: settings.audioInputMode === "file"
@@ -235,6 +261,7 @@ export function SubtitleDocumentProvider({ children }: { children: React.ReactNo
     // Update the global subtitles state to show in sidebar
     setSpeakers(speakers)
     setSubtitles(segments)
+    setGameEvents(gameEvents)
     console.log("Subtitle list updated with", segments.length, "subtitles")
 
     // Ensure the font for the detected transcription language is registered
@@ -280,6 +307,7 @@ export function SubtitleDocumentProvider({ children }: { children: React.ReactNo
     await updateSubtitleDocument(filename, { subtitles: segments });
     console.log("Subtitle list updated with", segments.length, "subtitles");
     setSpeakers(transcript.speakers || []);
+    setGameEvents(transcript.gameEvents || []);
     setSubtitles(segments);
   };
 
@@ -339,7 +367,7 @@ export function SubtitleDocumentProvider({ children }: { children: React.ReactNo
           });
         }
 
-        let srtData = generateSrt(subtitlesToExport);
+        let srtData = generateSrt(mergeGameEventCues(subtitlesToExport, gameEvents));
 
         if (!srtData || srtData.trim() === '') {
           console.error('Generated SRT data is empty');
@@ -429,13 +457,16 @@ export function SubtitleDocumentProvider({ children }: { children: React.ReactNo
     <SubtitleDocumentContext.Provider value={{
       subtitles,
       speakers,
+      gameEvents,
       markIn,
       currentSubtitleDocumentFilename,
       currentSubtitleDocumentSourceName,
       setSubtitles,
       setSpeakers,
+      setGameEvents,
       setCurrentSubtitleDocumentFilename,
       updateSpeakers,
+      updateGameEvents,
       updateSubtitles,
       flushPendingSubtitleSave,
       processTranscriptionResults,

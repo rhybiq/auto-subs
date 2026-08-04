@@ -52,6 +52,30 @@ pub struct Speaker {
     pub sample: Sample,
 }
 
+/// Non-speech CS2 sound event kind. See [`GameEvent`].
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum GameEventKind {
+    Gunfire,
+    Explosion,
+    ElectronicBeep,
+}
+
+/// A detected non-speech CS2 gameplay sound event (gunfire, explosion, or the
+/// C4 plant/defuse electronic beep), auto-inserted as a bracketed caption tag
+/// (e.g. `[GUNFIRE]`) alongside speech subtitles. Experimental: detected via a
+/// general-purpose audio classifier never trained on game audio, so expect
+/// false positives — kept as its own editable/deletable list, never silently
+/// merged into `segments`.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct GameEvent {
+    pub id: usize,
+    pub start: f64,
+    pub end: f64,
+    pub kind: GameEventKind,
+    pub confidence: f32,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Transcript {
     pub processing_time_sec: u64,
@@ -66,6 +90,12 @@ pub struct Transcript {
     #[serde(rename = "originalSegments")]
     pub original_segments: Vec<Segment>,
     pub speakers: Vec<Speaker>,
+    /// Empty unless `enable_game_events` was requested. `#[serde(default)]` so
+    /// documents saved before this field existed still deserialize.
+    /// Matches `originalSegments`'s camelCase wire convention so the frontend
+    /// doesn't need a snake_case/camelCase fallback chain for this field.
+    #[serde(rename = "gameEvents", default)]
+    pub game_events: Vec<GameEvent>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -1,0 +1,17 @@
+[package]
+name = "game-events"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Audio-based sound-event detection (gunfire/explosion/electronic-beep) for CS2 gameplay captions"
+publish = false
+
+[dependencies]
+eyre = "0.6.12"
+ndarray = "0.16"
+ort = { version = "2.0.0-rc.12", features = ["ndarray"] }
+rustfft = "6.4"
+tracing = "0.1"
+
+[dev-dependencies]
+hound = "3.5.1"
