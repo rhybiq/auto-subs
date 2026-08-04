@@ -62,6 +62,24 @@ jobs:
       - name: Setup MSVC dev environment
         uses: ilammy/msvc-dev-cmd@v1.13.0
 
+      - name: Prefer VS-bundled Ninja over Chocolatey's
+        shell: pwsh
+        run: |
+          Write-Host "Chocolatey ninja version:"
+          & ninja --version
+          $candidates = @(
+            (Join-Path $env:VSINSTALLDIR "Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja"),
+            "C:\Program Files\Microsoft Visual Studio\18\Enterprise\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja"
+          )
+          $vsNinja = $candidates | Where-Object { $_ -and (Test-Path (Join-Path $_ "ninja.exe")) } | Select-Object -First 1
+          if ($vsNinja) {
+            Add-Content $env:GITHUB_PATH $vsNinja
+            Write-Host "VS-bundled ninja version (will now take priority on PATH):"
+            & (Join-Path $vsNinja "ninja.exe") --version
+          } else {
+            Write-Host "VS-bundled ninja not found; keeping whatever ninja is already on PATH."
+          }
+
       - name: Build Tauri Windows
         shell: pwsh
         env:
