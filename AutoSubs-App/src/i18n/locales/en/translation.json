@@ -632,6 +632,12 @@
       "importTitle": "Paste preset JSON",
       "importPlaceholder": "Paste the contents of a preset file here…",
       "importSubmit": "Import preset",
+      "defaultAppearanceTitle": "Default caption size & position",
+      "defaultAppearanceHint": "These values become the preset’s default look.",
+      "defaultSize": "Size",
+      "defaultX": "X",
+      "defaultY": "Y",
+      "defaultZ": "Z",
       "errors": {
         "invalidJson": "That doesn’t look like a valid preset file.",
         "captureFailed": "Couldn’t read the caption settings from Resolve.",

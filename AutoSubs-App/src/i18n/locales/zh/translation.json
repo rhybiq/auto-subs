@@ -611,6 +611,12 @@
       "importTitle": "粘贴预设 JSON",
       "importPlaceholder": "在此处粘贴预设文件的内容…",
       "importSubmit": "导入预设",
+      "defaultAppearanceTitle": "字幕默认大小和位置",
+      "defaultAppearanceHint": "这些值将成为预设的默认外观。",
+      "defaultSize": "大小",
+      "defaultX": "X",
+      "defaultY": "Y",
+      "defaultZ": "Z",
       "errors": {
         "invalidJson": "这看起来不像是一个有效的预设文件。",
         "captureFailed": "无法从 Resolve 读取字幕设置。",

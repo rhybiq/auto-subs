@@ -622,6 +622,12 @@
       "importTitle": "Вставьте JSON пресета",
       "importPlaceholder": "Вставьте сюда содержимое файла пресета…",
       "importSubmit": "Импортировать пресет",
+      "defaultAppearanceTitle": "Размер и положение субтитров по умолчанию",
+      "defaultAppearanceHint": "Эти значения станут стандартным видом пресета.",
+      "defaultSize": "Размер",
+      "defaultX": "X",
+      "defaultY": "Y",
+      "defaultZ": "Z",
       "errors": {
         "invalidJson": "Это не похоже на корректный файл пресета.",
         "captureFailed": "Не удалось считать настройки титра из Resolve.",

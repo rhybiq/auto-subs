@@ -611,6 +611,12 @@
       "importTitle": "프리셋 JSON 붙여넣기",
       "importPlaceholder": "프리셋 파일 내용을 여기에 붙여넣으세요…",
       "importSubmit": "프리셋 가져오기",
+      "defaultAppearanceTitle": "자막 기본 크기 및 위치",
+      "defaultAppearanceHint": "이 값이 프리셋의 기본 모양이 됩니다.",
+      "defaultSize": "크기",
+      "defaultX": "X",
+      "defaultY": "Y",
+      "defaultZ": "Z",
       "errors": {
         "invalidJson": "유효한 프리셋 파일처럼 보이지 않습니다.",
         "captureFailed": "Resolve에서 자막 설정을 읽을 수 없습니다.",

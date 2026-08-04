@@ -611,6 +611,12 @@
       "importTitle": "プリセットJSONを貼り付け",
       "importPlaceholder": "プリセットファイルの内容をここに貼り付けてください…",
       "importSubmit": "プリセットをインポート",
+      "defaultAppearanceTitle": "字幕のデフォルトサイズと位置",
+      "defaultAppearanceHint": "これらの値がプリセットのデフォルトの見た目になります。",
+      "defaultSize": "サイズ",
+      "defaultX": "X",
+      "defaultY": "Y",
+      "defaultZ": "Z",
       "errors": {
         "invalidJson": "有効なプリセットファイルのように見えません。",
         "captureFailed": "Resolveから字幕設定を読み取れませんでした。",

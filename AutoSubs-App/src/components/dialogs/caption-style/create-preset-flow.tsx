@@ -134,6 +134,18 @@ export function CreatePresetFlow({
         await startEdit(phase.settings)
     }
 
+    function updatePresetAppearanceValue(
+        patch: Partial<Record<string, unknown>>,
+    ) {
+        setPhase((prev) => {
+            if (prev.kind !== "naming") return prev
+            return {
+                ...prev,
+                settings: { ...prev.settings, ...patch },
+            }
+        })
+    }
+
     async function handleSave() {
         if (phase.kind !== "naming") return
         const trimmed = name.trim()
@@ -152,6 +164,15 @@ export function CreatePresetFlow({
             setIsSaving(false)
         }
     }
+
+    const positionArray = Array.isArray(phase.kind === "naming" ? phase.settings.TextPosition : undefined)
+        ? (phase.kind === "naming" ? phase.settings.TextPosition : [])
+        : [0.5, 0.12, 0]
+    const defaultTextSize = Number(
+        phase.kind === "naming" ? (phase.settings.TextSize as number | undefined) : undefined,
+    )
+    const defaultTextX = Number(positionArray[0] ?? 0.5)
+    const defaultTextY = Number(positionArray[1] ?? 0.12)
 
     return (
         <div className="space-y-4">
@@ -222,6 +243,110 @@ export function CreatePresetFlow({
                             placeholder={t("addToTimeline.preset.descriptionPlaceholder")}
                             rows={2}
                         />
+                    </div>
+
+                    <div className="rounded-md border bg-muted/30 p-3 space-y-3">
+                        <div>
+                            <h4 className="text-sm font-medium">
+                                {t("addToTimeline.preset.defaultAppearanceTitle")}
+                            </h4>
+                            <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                {t("addToTimeline.preset.defaultAppearanceHint")}
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <Label className="text-[11px]" htmlFor="preset-default-size">
+                                    {t("addToTimeline.preset.defaultSize")}
+                                </Label>
+                                <Input
+                                    id="preset-default-size"
+                                    type="number"
+                                    min="0.01"
+                                    max="1"
+                                    step="0.01"
+                                    value={Number.isFinite(defaultTextSize) ? defaultTextSize : 0.07}
+                                    onChange={(e) => {
+                                        const nextValue = Number(e.target.value)
+                                        if (!Number.isFinite(nextValue)) return
+                                        updatePresetAppearanceValue({
+                                            TextSize: Math.min(1, Math.max(0.01, nextValue)),
+                                        })
+                                    }}
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-[11px]" htmlFor="preset-default-position-x">
+                                    {t("addToTimeline.preset.defaultX")}
+                                </Label>
+                                <Input
+                                    id="preset-default-position-x"
+                                    type="number"
+                                    min="0"
+                                    max="1"
+                                    step="0.01"
+                                    value={Number.isFinite(defaultTextX) ? defaultTextX : 0.5}
+                                    onChange={(e) => {
+                                        const nextValue = Number(e.target.value)
+                                        if (!Number.isFinite(nextValue)) return
+                                        const nextPosition = [
+                                            Math.min(1, Math.max(0, nextValue)),
+                                            defaultTextY,
+                                            Array.isArray(positionArray) ? Number(positionArray[2] ?? 0) : 0,
+                                        ]
+                                        updatePresetAppearanceValue({ TextPosition: nextPosition })
+                                    }}
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-[11px]" htmlFor="preset-default-position-y">
+                                    {t("addToTimeline.preset.defaultY")}
+                                </Label>
+                                <Input
+                                    id="preset-default-position-y"
+                                    type="number"
+                                    min="0"
+                                    max="1"
+                                    step="0.01"
+                                    value={Number.isFinite(defaultTextY) ? defaultTextY : 0.12}
+                                    onChange={(e) => {
+                                        const nextValue = Number(e.target.value)
+                                        if (!Number.isFinite(nextValue)) return
+                                        const nextPosition = [
+                                            defaultTextX,
+                                            Math.min(1, Math.max(0, nextValue)),
+                                            Array.isArray(positionArray) ? Number(positionArray[2] ?? 0) : 0,
+                                        ]
+                                        updatePresetAppearanceValue({ TextPosition: nextPosition })
+                                    }}
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-[11px]" htmlFor="preset-default-position-z">
+                                    {t("addToTimeline.preset.defaultZ")}
+                                </Label>
+                                <Input
+                                    id="preset-default-position-z"
+                                    type="number"
+                                    min="-10"
+                                    max="10"
+                                    step="0.1"
+                                    value={Array.isArray(positionArray) ? Number(positionArray[2] ?? 0) : 0}
+                                    onChange={(e) => {
+                                        const nextValue = Number(e.target.value)
+                                        if (!Number.isFinite(nextValue)) return
+                                        const nextPosition = [
+                                            defaultTextX,
+                                            defaultTextY,
+                                            nextValue,
+                                        ]
+                                        updatePresetAppearanceValue({ TextPosition: nextPosition })
+                                    }}
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

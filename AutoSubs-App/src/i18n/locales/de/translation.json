@@ -611,6 +611,12 @@
       "importTitle": "Voreinstellungs-JSON einfügen",
       "importPlaceholder": "Füge den Inhalt einer Voreinstellungsdatei hier ein…",
       "importSubmit": "Voreinstellung importieren",
+      "defaultAppearanceTitle": "Standardgröße und -position der Untertitel",
+      "defaultAppearanceHint": "Diese Werte werden zum Standardbild der Voreinstellung.",
+      "defaultSize": "Größe",
+      "defaultX": "X",
+      "defaultY": "Y",
+      "defaultZ": "Z",
       "errors": {
         "invalidJson": "Das sieht nicht nach einer gültigen Voreinstellungsdatei aus.",
         "captureFailed": "Untertitel-Einstellungen konnten nicht aus Resolve gelesen werden.",

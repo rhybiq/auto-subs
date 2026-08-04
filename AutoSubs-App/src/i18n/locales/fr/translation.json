@@ -611,6 +611,12 @@
       "importTitle": "Coller le JSON du préréglage",
       "importPlaceholder": "Collez le contenu d'un fichier de préréglage ici…",
       "importSubmit": "Importer le préréglage",
+      "defaultAppearanceTitle": "Taille et position par défaut des sous-titres",
+      "defaultAppearanceHint": "Ces valeurs deviennent l’apparence par défaut du préréglage.",
+      "defaultSize": "Taille",
+      "defaultX": "X",
+      "defaultY": "Y",
+      "defaultZ": "Z",
       "errors": {
         "invalidJson": "Cela ne ressemble pas à un fichier de préréglage valide.",
         "captureFailed": "Impossible de lire les paramètres du sous-titre depuis Resolve.",

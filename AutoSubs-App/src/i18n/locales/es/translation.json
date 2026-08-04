@@ -611,6 +611,12 @@
       "importTitle": "Pegar JSON del preajuste",
       "importPlaceholder": "Pega el contenido de un archivo de preajuste aquí…",
       "importSubmit": "Importar preajuste",
+      "defaultAppearanceTitle": "Tamaño y posición predeterminados de los subtítulos",
+      "defaultAppearanceHint": "Estos valores se convierten en el aspecto predeterminado del preajuste.",
+      "defaultSize": "Tamaño",
+      "defaultX": "X",
+      "defaultY": "Y",
+      "defaultZ": "Z",
       "errors": {
         "invalidJson": "Eso no parece un archivo de preajuste válido.",
         "captureFailed": "No se pudieron leer los ajustes del subtítulo desde Resolve.",
