@@ -257,7 +257,7 @@ fn create_main_window(app: &tauri::AppHandle) -> tauri::Result<tauri::WebviewWin
     #[allow(unused_mut)]
     let mut builder =
         tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
-            .title("AutoSubs")
+            .title("rhybiq")
             .inner_size(750.0, 700.0)
             .decorations(true)
             .accept_first_mouse(true)

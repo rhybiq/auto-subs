@@ -40,9 +40,9 @@ jobs:
           # Required assets for a complete updater JSON. Linux does not use the
           # Tauri updater, so it is intentionally omitted here.
           REQUIRED=(
-            "AutoSubs-macos-aarch64.app.tar.gz.sig"
-            "AutoSubs-macos-x86_64.app.tar.gz.sig"
-            "AutoSubs-windows-x86_64.exe.sig"
+            "rhybiq-macos-aarch64.app.tar.gz.sig"
+            "rhybiq-macos-x86_64.app.tar.gz.sig"
+            "rhybiq-windows-x86_64.exe.sig"
           )
 
           MISSING=0
@@ -71,9 +71,9 @@ jobs:
           set -Euo pipefail
 
           # Read signatures (they were verified in the previous step)
-          ARM_SIG=$(cat artifacts/AutoSubs-macos-aarch64.app.tar.gz.sig)
-          INTEL_SIG=$(cat artifacts/AutoSubs-macos-x86_64.app.tar.gz.sig)
-          WINDOWS_SIG=$(cat artifacts/AutoSubs-windows-x86_64.exe.sig)
+          ARM_SIG=$(cat artifacts/rhybiq-macos-aarch64.app.tar.gz.sig)
+          INTEL_SIG=$(cat artifacts/rhybiq-macos-x86_64.app.tar.gz.sig)
+          WINDOWS_SIG=$(cat artifacts/rhybiq-windows-x86_64.exe.sig)
 
           VERSION="${TAG#v}"
           PUB_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
@@ -96,9 +96,9 @@ jobs:
               pub_date: $pub_date,
               notes: $notes,
               platforms: {
-                "darwin-aarch64": { signature: $arm_sig, url: "https://github.com/\($repo)/releases/download/\($tag)/AutoSubs-macos-aarch64.app.tar.gz" },
-                "darwin-x86_64": { signature: $intel_sig, url: "https://github.com/\($repo)/releases/download/\($tag)/AutoSubs-macos-x86_64.app.tar.gz" },
-                "windows-x86_64": { signature: $win_sig, url: "https://github.com/\($repo)/releases/download/\($tag)/AutoSubs-windows-x86_64.exe" }
+                "darwin-aarch64": { signature: $arm_sig, url: "https://github.com/\($repo)/releases/download/\($tag)/rhybiq-macos-aarch64.app.tar.gz" },
+                "darwin-x86_64": { signature: $intel_sig, url: "https://github.com/\($repo)/releases/download/\($tag)/rhybiq-macos-x86_64.app.tar.gz" },
+                "windows-x86_64": { signature: $win_sig, url: "https://github.com/\($repo)/releases/download/\($tag)/rhybiq-windows-x86_64.exe" }
               }
             }' > latest.json
 

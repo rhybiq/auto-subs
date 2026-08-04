@@ -1,4 +1,4 @@
-name: Package AutoSubs for MacOS and Linux
+name: Package rhybiwsubs for MacOS and Linux
 on:
   workflow_dispatch:
     inputs:
@@ -13,6 +13,8 @@ permissions:
 env:
   # Resolve tag for both release-triggered and manual runs
   TAG: ${{ github.event.release.tag_name || inputs.tag }}
+  APP_NAME: rhybiq
+  APP_PACKAGE_ID: com.rhybiq
 
 jobs:
   build-mac:
@@ -205,29 +207,29 @@ jobs:
         # Strip leading 'v' if present
         VERSION=${VERSION#v}
 
-        pkgbuild --identifier com.tom-moroney.autosubs \
+        pkgbuild --identifier "$APP_PACKAGE_ID" \
           --version "$VERSION" \
           --install-location "/Applications" \
           --root Mac-Package/Payload \
           --scripts Mac-Package/Scripts \
-          AutoSubs-unsigned.pkg
+          ${APP_NAME}-unsigned.pkg
 
     - name: Sign PKG Installer
       run: |
         productsign --sign "Developer ID Installer: ${{ secrets.APPLE_IDENTITY }}" \
           --timestamp \
-          "AutoSubs-unsigned.pkg" \
-          "AutoSubs-Mac-${{ matrix.pkg_suffix }}.pkg"
+          "${APP_NAME}-unsigned.pkg" \
+          "${APP_NAME}-Mac-${{ matrix.pkg_suffix }}.pkg"
 
     - name: Notarize PKG Installer
       run: |
         # Function to notarize and staple the package
         notarize_and_staple() {
-          xcrun notarytool submit "AutoSubs-Mac-${{ matrix.pkg_suffix }}.pkg" \
+          xcrun notarytool submit "${APP_NAME}-Mac-${{ matrix.pkg_suffix }}.pkg" \
             --keychain-profile "AC_PASSWORD" \
             --wait
         
-          xcrun stapler staple "AutoSubs-Mac-${{ matrix.pkg_suffix }}.pkg"
+          xcrun stapler staple "${APP_NAME}-Mac-${{ matrix.pkg_suffix }}.pkg"
         }
         
         # Try notarization up to 3 times in case of bus error
@@ -248,35 +250,35 @@ jobs:
         mkdir -p "$OUT_DIR"
 
         # Rename updater archives per-arch to avoid filename collisions in the release
-        if [ -f "$MACOS_BUNDLE_DIR/AutoSubs.app.tar.gz" ]; then
+        if [ -f "$MACOS_BUNDLE_DIR/${APP_NAME}.app.tar.gz" ]; then
           if [ "${{ matrix.arch }}" = "arm64" ]; then
-            NEW_NAME="AutoSubs-macos-aarch64.app.tar.gz"
+            NEW_NAME="${APP_NAME}-macos-aarch64.app.tar.gz"
           else
-            NEW_NAME="AutoSubs-macos-x86_64.app.tar.gz"
+            NEW_NAME="${APP_NAME}-macos-x86_64.app.tar.gz"
           fi
-          mv "$MACOS_BUNDLE_DIR/AutoSubs.app.tar.gz" "$MACOS_BUNDLE_DIR/$NEW_NAME"
-          if [ -f "$MACOS_BUNDLE_DIR/AutoSubs.app.tar.gz.sig" ]; then
-            mv "$MACOS_BUNDLE_DIR/AutoSubs.app.tar.gz.sig" "$MACOS_BUNDLE_DIR/$NEW_NAME.sig"
+          mv "$MACOS_BUNDLE_DIR/${APP_NAME}.app.tar.gz" "$MACOS_BUNDLE_DIR/$NEW_NAME"
+          if [ -f "$MACOS_BUNDLE_DIR/${APP_NAME}.app.tar.gz.sig" ]; then
+            mv "$MACOS_BUNDLE_DIR/${APP_NAME}.app.tar.gz.sig" "$MACOS_BUNDLE_DIR/$NEW_NAME.sig"
           else
-            echo "ERROR: Updater signature AutoSubs.app.tar.gz.sig not found in $MACOS_BUNDLE_DIR" >&2
+            echo "ERROR: Updater signature ${APP_NAME}.app.tar.gz.sig not found in $MACOS_BUNDLE_DIR" >&2
             exit 1
           fi
         fi
 
         # Copy renamed updater artifacts to release output
         if [ "${{ matrix.arch }}" = "arm64" ]; then
-          cp "$MACOS_BUNDLE_DIR/AutoSubs-macos-aarch64.app.tar.gz" "$OUT_DIR/"
-          cp "$MACOS_BUNDLE_DIR/AutoSubs-macos-aarch64.app.tar.gz.sig" "$OUT_DIR/"
+          cp "$MACOS_BUNDLE_DIR/${APP_NAME}-macos-aarch64.app.tar.gz" "$OUT_DIR/"
+          cp "$MACOS_BUNDLE_DIR/${APP_NAME}-macos-aarch64.app.tar.gz.sig" "$OUT_DIR/"
         else
-          cp "$MACOS_BUNDLE_DIR/AutoSubs-macos-x86_64.app.tar.gz" "$OUT_DIR/"
-          cp "$MACOS_BUNDLE_DIR/AutoSubs-macos-x86_64.app.tar.gz.sig" "$OUT_DIR/"
+          cp "$MACOS_BUNDLE_DIR/${APP_NAME}-macos-x86_64.app.tar.gz" "$OUT_DIR/"
+          cp "$MACOS_BUNDLE_DIR/${APP_NAME}-macos-x86_64.app.tar.gz.sig" "$OUT_DIR/"
         fi
     
     - name: Upload Build Artifacts to Release
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          AutoSubs-Mac-${{ matrix.pkg_suffix }}.pkg
+          ${APP_NAME}-Mac-${{ matrix.pkg_suffix }}.pkg
           release-artifacts/*
         token: ${{ secrets.GH_TOKEN }}
         tag_name: ${{ env.TAG }}
@@ -350,7 +352,7 @@ jobs:
 
           DEB_FILE=$(ls -1 "$LINUX_BUNDLE_DIR/deb"/*.deb 2>/dev/null | head -n1 || true)
           if [ -n "$DEB_FILE" ]; then
-            cp "$DEB_FILE" "AutoSubs-linux-x86_64.deb"
+            cp "$DEB_FILE" "${APP_NAME}-linux-x86_64.deb"
           else
             echo "ERROR: .deb package not found in $LINUX_BUNDLE_DIR/deb"
             exit 1
@@ -358,7 +360,7 @@ jobs:
 
           RPM_FILE=$(ls -1 "$LINUX_BUNDLE_DIR/rpm"/*.rpm 2>/dev/null | head -n1 || true)
           if [ -n "$RPM_FILE" ]; then
-            cp "$RPM_FILE" "AutoSubs-linux-x86_64.rpm"
+            cp "$RPM_FILE" "${APP_NAME}-linux-x86_64.rpm"
           else
             echo "ERROR: .rpm package not found in $LINUX_BUNDLE_DIR/rpm"
             exit 1
@@ -368,8 +370,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            AutoSubs-linux-x86_64.deb
-            AutoSubs-linux-x86_64.rpm
+            ${APP_NAME}-linux-x86_64.deb
+            ${APP_NAME}-linux-x86_64.rpm
           token: ${{ secrets.GH_TOKEN }}
           tag_name: ${{ env.TAG }}
 
