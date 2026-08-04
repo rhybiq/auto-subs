@@ -55,6 +55,9 @@ jobs:
           vulkan_version: 1.4.309.0
           cache: true
 
+      - name: Setup MSVC dev environment
+        uses: ilammy/msvc-dev-cmd@v1.13.0
+
       - name: Build Tauri Windows
         shell: pwsh
         env:
