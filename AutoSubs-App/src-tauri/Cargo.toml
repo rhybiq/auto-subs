@@ -9,7 +9,7 @@ resolver = "2"
 
 [package]
 name = "rhybiq"
-version = "1.0.6"
+version = "1.0.7"
 description = "Transcribe and diarize audio files"
 authors = ["Tom Moroney"]
 edition = "2024"
