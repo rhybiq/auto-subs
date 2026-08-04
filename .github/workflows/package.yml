@@ -49,6 +49,13 @@ jobs:
             git push origin HEAD:main
           fi
 
+      - name: Install Vulkan SDK
+        uses: humbletim/setup-vulkan-sdk@v1.2.0
+        with:
+          vulkan-query-version: latest
+          vulkan-components: Vulkan-Headers, Vulkan-Loader
+          vulkan-use-cache: true
+
       - name: Build Tauri Windows
         shell: pwsh
         env:

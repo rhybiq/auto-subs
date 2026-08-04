@@ -26,6 +26,23 @@ function getVersionFromPackageJson() {
   return packageJson.version;
 }
 
+// Cargo.lock identifies the root crate by its Cargo.toml [package] name, not
+// a fixed string — this repo has already been renamed once (autosubs ->
+// rhybiq) without Cargo.lock being regenerated at the same time, which is
+// exactly the drift this derivation avoids repeating.
+function getCargoPackageName(cargoTomlPath) {
+  if (!fs.existsSync(cargoTomlPath)) return null;
+  const content = fs.readFileSync(cargoTomlPath, 'utf-8');
+  const packageSectionMatch = content.match(/\[package\][^\S\r\n]*\r?\n([\s\S]*?)(?:\r?\n\[|$)/);
+  const section = packageSectionMatch ? packageSectionMatch[1] : content;
+  const nameMatch = section.match(/^name\s*=\s*"([^"]+)"/m);
+  return nameMatch ? nameMatch[1] : null;
+}
+
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function bumpSemver(version, bump) {
   const [major, minor, patch] = version.split('.').map(Number);
   if (bump === 'major') return `${major + 1}.0.0`;
@@ -102,18 +119,24 @@ function updateCargoTomlVersion(filePath, version, description) {
   return true;
 }
 
-function updateCargoLockVersion(filePath, version) {
+function updateCargoLockVersion(filePath, version, packageName) {
   if (!fs.existsSync(filePath)) {
     console.log(`⚠️  Cargo.lock not found: ${filePath}`);
     return false;
   }
+  if (!packageName) {
+    console.log(`⚠️  Could not determine package name from Cargo.toml; skipping Cargo.lock`);
+    return false;
+  }
 
   const content = fs.readFileSync(filePath, 'utf-8');
-  const pattern = /(\[\[package\]\]\r?\nname\s*=\s*"autosubs"\r?\n)version\s*=\s*"[\d.]+"/;
+  const pattern = new RegExp(
+    `(\\[\\[package\\]\\]\\r?\\nname\\s*=\\s*"${escapeRegExp(packageName)}"\\r?\\n)version\\s*=\\s*"[\\d.]+"`,
+  );
   const newContent = content.replace(pattern, `$1version = "${version}"`);
 
   if (content === newContent) {
-    console.log(`⚠️  No changes needed for Cargo.lock (already at ${version} or autosubs entry not found)`);
+    console.log(`⚠️  No changes needed for Cargo.lock (already at ${version} or "${packageName}" entry not found)`);
     return false;
   }
 
@@ -140,7 +163,7 @@ function updateVersionLua(filePath, version) {
   return true;
 }
 
-function verifyFiles(version) {
+function verifyFiles(version, packageName) {
   const checks = [
     { path: path.join(rootDir, 'package.json'), field: 'version' },
     { path: path.join(rootDir, 'src-tauri', 'tauri.conf.json'), field: 'version' },
@@ -173,11 +196,15 @@ function verifyFiles(version) {
 
   // Cargo.lock uses a different check because it is not JSON
   const cargoLockPath = path.join(rootDir, 'src-tauri', 'Cargo.lock');
-  if (fs.existsSync(cargoLockPath)) {
+  if (fs.existsSync(cargoLockPath) && packageName) {
     const cargoLock = fs.readFileSync(cargoLockPath, 'utf-8');
-    const lockPattern = new RegExp(`\\[\\[package\\]\\]\\r?\\nname\\s*=\\s*"autosubs"\\r?\\nversion\\s*=\\s*"${version}"`);
+    const lockPattern = new RegExp(
+      `\\[\\[package\\]\\]\\r?\\nname\\s*=\\s*"${escapeRegExp(packageName)}"\\r?\\nversion\\s*=\\s*"${version}"`,
+    );
     if (!lockPattern.test(cargoLock)) {
-      console.error(`❌ Verification failed: ${path.relative(rootDir, cargoLockPath)} autosubs entry does not have version ${version}`);
+      console.error(
+        `❌ Verification failed: ${path.relative(rootDir, cargoLockPath)} "${packageName}" entry does not have version ${version}`,
+      );
       ok = false;
     }
   }
@@ -232,7 +259,13 @@ function main() {
     updatedCount++;
   }
 
-  if (updateCargoLockVersion(path.join(rootDir, 'src-tauri', 'Cargo.lock'), version)) {
+  const cargoTomlPath = path.join(rootDir, 'src-tauri', 'Cargo.toml');
+  const packageName = getCargoPackageName(cargoTomlPath);
+  if (!packageName) {
+    console.log(`⚠️  Could not read [package] name from ${path.relative(rootDir, cargoTomlPath)}`);
+  }
+
+  if (updateCargoLockVersion(path.join(rootDir, 'src-tauri', 'Cargo.lock'), version, packageName)) {
     updatedCount++;
   }
 
@@ -241,7 +274,7 @@ function main() {
   }
 
   console.log(`\nVerifying all files are at version ${version}...`);
-  if (!verifyFiles(version)) {
+  if (!verifyFiles(version, packageName)) {
     console.error('\n❌ Version bump failed verification. Please check the files manually.');
     process.exit(1);
   }
