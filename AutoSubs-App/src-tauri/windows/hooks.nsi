@@ -6,11 +6,18 @@
   RMDir /r "$APPDATA\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Utility\AutoSubs"
   Delete "$PROGRAMDATA\Blackmagic Design\DaVinci Resolve\Support\Workflow Integration Plugins\AutoSubs V2.lua"
 
-  ; Generate AutoSubs.lua with the installation path baked in (no file read needed at launch)
-  FileOpen $0 "$APPDATA\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Utility\AutoSubs.lua" w
+  ; Remove the pre-rebrand AutoSubs.lua (and its baked-in reference to the old
+  ; AutoSubs.exe binary name, which no longer exists now that the app ships as
+  ; rhybiq.exe) so upgraders don't end up with a stale, non-functional entry
+  ; alongside the new rhybiqsubs.lua below.
+  Delete "$APPDATA\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Utility\AutoSubs.lua"
+  Delete "$PROGRAMDATA\Blackmagic Design\DaVinci Resolve\Support\Workflow Integration Plugins\AutoSubs.lua"
+
+  ; Generate rhybiqsubs.lua with the installation path baked in (no file read needed at launch)
+  FileOpen $0 "$APPDATA\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Utility\rhybiqsubs.lua" w
   FileWrite $0 "local app_executable = [["
   FileWrite $0 $INSTDIR
-  FileWrite $0 "\AutoSubs.exe]]$\r$\n"
+  FileWrite $0 "\rhybiq.exe]]$\r$\n"
   FileWrite $0 "local resources_folder = [["
   FileWrite $0 $INSTDIR
   FileWrite $0 "\resources]]$\r$\n"
@@ -28,7 +35,7 @@
 
   ; Ensure Workflow Integration Plugins directory exists (do last just in case it fails)
   CreateDirectory "$PROGRAMDATA\Blackmagic Design\DaVinci Resolve\Support\Workflow Integration Plugins"
-  CopyFiles "$APPDATA\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Utility\AutoSubs.lua" "$PROGRAMDATA\Blackmagic Design\DaVinci Resolve\Support\Workflow Integration Plugins"
+  CopyFiles "$APPDATA\Blackmagic Design\DaVinci Resolve\Support\Fusion\Scripts\Utility\rhybiqsubs.lua" "$PROGRAMDATA\Blackmagic Design\DaVinci Resolve\Support\Workflow Integration Plugins"
 
   ; Adobe Extension Installation
   CreateDirectory "$APPDATA\Adobe\CEP\extensions"
