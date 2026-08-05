@@ -104,6 +104,11 @@ jobs:
           Add-MpPreference -ExclusionProcess "ninja.exe" -ErrorAction Stop
 
       - name: Build Tauri Windows
+        # No TAURI_SIGNING_PRIVATE_KEY secret is configured on this repo, so the
+        # updater-signing step after bundling hard-fails even though the NSIS
+        # installer itself was already built successfully. Let the job continue;
+        # the next step verifies the installer actually exists.
+        continue-on-error: true
         shell: pwsh
         env:
           CC: cl
