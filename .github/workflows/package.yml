@@ -57,6 +57,32 @@ jobs:
             git push origin HEAD:main
           fi
 
+      - name: Download ffmpeg binary
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path "AutoSubs-App\src-tauri\binaries" | Out-Null
+          Set-Location "AutoSubs-App\src-tauri\binaries"
+
+          $zipName = "ffmpeg-x86_64-pc-windows-msvc.zip"
+          $maxAttempts = 5
+          for ($i = 1; $i -le $maxAttempts; $i++) {
+            Write-Host "Attempt ${i}: downloading $zipName from tmoroney/ffmpeg-binaries..."
+            gh release download --repo tmoroney/ffmpeg-binaries --pattern $zipName --clobber
+            if ($LASTEXITCODE -eq 0) { break }
+            if ($i -eq $maxAttempts) {
+              Write-Error "Failed to download $zipName after $i attempts"
+              exit 1
+            }
+            Start-Sleep -Seconds ($i * 5)
+          }
+
+          Expand-Archive -Path $zipName -DestinationPath . -Force
+          Remove-Item $zipName
+          Remove-Item -Recurse -Force "__MACOSX" -ErrorAction SilentlyContinue
+
       - name: Install Vulkan SDK
         shell: pwsh
         env:
