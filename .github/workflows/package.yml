@@ -164,3 +164,4 @@ jobs:
             rhybiq-windows-x86_64.exe.sig
           token: ${{ secrets.GH_TOKEN }}
           tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
