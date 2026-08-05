@@ -179,6 +179,14 @@ local lastProjectId = project:GetUniqueId()
 -- must reset the one-shot import guard so get_templates() will try
 -- the import again.
 local function refresh_project()
+    -- Re-fetch projectManager itself (not just project) from the live `resolve`
+    -- global every call, rather than trusting the reference cached once at
+    -- module load. That cached reference has been observed to go stale
+    -- (calls to :GetCurrentProject() on it fail with "a nil value") even
+    -- though resolve:GetProjectManager() itself still works fine when called
+    -- fresh - most likely a side effect of the ReloadServer hot-reload path
+    -- (see below) not fully reinitializing Resolve-provided object handles.
+    projectManager = resolve:GetProjectManager()
     project = projectManager:GetCurrentProject()
     mediaPool = project:GetMediaPool()
     local currentId = project:GetUniqueId()
